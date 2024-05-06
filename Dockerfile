@@ -1,5 +1,20 @@
-FROM openjdk:21
+FROM eclipse-temurin:21-jdk-jammy AS build
 
-COPY ./build/libs/github-action-test-0.0.1-SNAPSHOT.jar /app.jar
+WORKDIR /app
 
-ENTRYPOINT ["java", "-jar", "/app.jar"]
+COPY gradlew .
+COPY gradlew.bat .
+COPY gradle gradle
+COPY build.gradle .
+COPY settings.gradle .
+COPY src ./src
+
+RUN ./gradlew build --no-daemon
+
+FROM eclipse-temurin:21-jre-jammy
+
+WORKDIR /app
+
+COPY --from=build /app/build/libs/*.jar app.jar
+
+CMD ["java", "-jar", "app.jar"]
