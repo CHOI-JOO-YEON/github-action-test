@@ -1,0 +1,38 @@
+name: GCP CI/CD
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  PROJECT_ID: fresh-bloom-422006-a0
+  GKE_CLUSTER: fresh-bloom-422006-a0
+  GKE_ZONE: us-central1-a
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v0
+      with:
+        project_id: ${{ env.PROJECT_ID }}
+        service_account_key: ${{ secrets.GCP_SA_KEY }}
+        export_default_credentials: true
+
+    - name: Build and Push Docker Image
+      run: |
+        docker build -t gcr.io/${{ env.PROJECT_ID }}/my-app:${{ github.sha }} .
+        gcloud auth configure-docker
+        docker push gcr.io/${{ env.PROJECT_ID }}/my-app:${{ github.sha }}
+        
+    - name: Deploy to GKE
+      run: |  
+        gcloud container clusters get-credentials ${{ env.GKE_CLUSTER }} --zone ${{ env.GKE_ZONE }}
+        kubectl apply -f k8s/
+        kubectl set image deployment/my-app my-app=gcr.io/${{ env.PROJECT_ID }}/my-app:${{ github.sha }}
